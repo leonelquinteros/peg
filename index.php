@@ -2,8 +2,6 @@
 require('peg.php');
 
 $peg = new Peg();
-$peg->renderPlay = true;
-$peg->playToWin = true;
 ?>
 
 <!DOCTYPE html>
@@ -15,13 +13,15 @@ $peg->playToWin = true;
 	</head>
 	
 	<body>
-		<?php 
-		$peg->play();
+		<?php
+		$solutions = $peg->play();
 		
-		echo '<div style="clear:both;border-top:1px solid #444;">';
+		print_r($solutions);
 		
-		$peg->saveGame();
-		$peg->playLastGame(); 
+		//echo '<div style="clear:both;border-top:1px solid #444;">';
+		
+		//$peg->saveGame();
+		//$peg->playLastGame();
 		?>
 	</body>
 </html>

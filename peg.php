@@ -225,12 +225,6 @@ class Peg
 	}
 	
 	
-	public function play()
-	{
-		
-	}
-	
-	
 	/**
 	 * Renders the board in HTML.
 	 */
@@ -292,6 +286,46 @@ class Peg
 		{
 			$this->move($move[0], $move[1]);
 		}
+	}
+	
+	/**
+	 * Plays the game.
+	 */
+	public function play()
+	{
+		$winningSolutions = array();
+		
+		$solutions = $this->findPaths();
+		
+		echo (count($solutions));
+		
+		while(!empty($solutions))
+		{
+			$newSolutions = array();
+			
+			foreach($solutions as $sKey => $solution)
+			{
+				$tmpSolutions = $solution->findPaths();
+				
+				echo ' -> ' . (count($tmpSolutions));
+				
+				if(!empty($tmpSolutions))
+				{
+					$newSolutions = array_merge($newSolutions, $tmpSolutions);
+				}
+				else
+				{
+					if(count($solution->moves) == 32)
+					{
+						$winningSolutions[] = $solution;
+					}
+				}
+			}
+			
+			$solutions = $newSolutions;
+		}
+		
+		return $winningSolutions;
 	}
 	
 	
@@ -460,8 +494,6 @@ class Peg
 					}
 				}
 			}
-			
-			return true;
 		}
 		
 		foreach($moves as $move)
@@ -470,10 +502,8 @@ class Peg
 			
 			foreach($move as $m)
 			{
-				$this->moveTo($m[0], $m[1], $m[]2);
+				$paths[count($paths) - 1]->moveTo($m[0], $m[1], $m[2]);
 			}
-			
-			$paths[count($paths) - 1]->findPaths();
 		}
 		
 		return $paths;
@@ -940,7 +970,7 @@ class Peg
 							$moves[3][] = array('down', $i, $j);
 						}
 					}
-					catch(Exception $ e) {}// Not available
+					catch(Exception $e) {} // Not available
 					
 					try
 					{
@@ -1086,7 +1116,7 @@ class Peg
 					(!$this->board[1][-1]->hasMarble && $this->board[0][-1]->hasMarble)
 				)
 				{
-					$moves[1] = array()
+					$moves[1] = array();
 					
 					$moves[1][] = array('down', 3, 1);
 					$moves[1][] = array('down', 3, 0);
@@ -1553,20 +1583,4 @@ class Peg
 		return $moves;
 	}
 	
-}
-
-
-/**
- * Plays a Peg game using Peg class.
- */
-class PegPlayer
-{
-	public $saveSolutions = false;
-	
-	public function play()
-	{
-		$peg = new Peg();
-		
-		$solutions = $peg->findPaths();
-	}
 }
