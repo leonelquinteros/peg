@@ -25,7 +25,7 @@ class PegDB
 	
 	/**
 	 * Inserts play moves into DB.
-	 * 
+	 *
 	 * @param array $moves
 	 */
 	public function saveGame($moves)
@@ -37,7 +37,7 @@ class PegDB
 		
 		foreach($moves as $i => $move)
 		{
-			$query = 'INSERT INTO moves SET 
+			$query = 'INSERT INTO moves SET
 						game_id = ' . $gameId . ',
 						move_nr = ' . $i . ',
 						from_x = ' . $move[0][1] . ',
@@ -53,7 +53,7 @@ class PegDB
 	
 	/**
 	 * Retrieves last game played from DB and return array of moves.
-	 * 
+	 *
 	 * @return array
 	 */
 	public function loadLastGame()
@@ -82,20 +82,20 @@ class PegDB
 	private function setupDB()
 	{
 		$query = 'CREATE TABLE IF NOT EXISTS games (
-					id INT NOT NULL AUTO_INCREMENT PRIMARY KEY, 
+					id INT NOT NULL AUTO_INCREMENT PRIMARY KEY,
 					date DATETIME
 		)';
 		mysql_query($query);
 		
 		$query = 'CREATE TABLE IF NOT EXISTS moves (
-					id INT NOT NULL AUTO_INCREMENT PRIMARY KEY, 
-					game_id INT NOT NULL, 
+					id INT NOT NULL AUTO_INCREMENT PRIMARY KEY,
+					game_id INT NOT NULL,
 					move_nr INT NOT NULL,
 					from_x INT NOT NULL,
 					from_y INT NOT NULL,
 					to_x INT NOT NULL,
 					to_y INT NOT NULL,
-		 			INDEX (game_id), 
+		 			INDEX (game_id),
 		 			INDEX (move_nr)
 		)';
 		mysql_query($query);
@@ -135,7 +135,7 @@ class Hole
 /**
  * Peg class
  *
- * Plays Peg solitaire game.
+ * Represents a board of a Peg solitaire game.
  *
  */
 class Peg
@@ -166,12 +166,6 @@ class Peg
 	 * @var boolean
 	 */
 	public $renderPlay = false;
-	
-	/**
-	 * Using this attribute can switch between a fixed winning game and a random game where you can win or not.
-	 * @var boolean
-	 */
-	public $playToWin = true;
 	
 	
 	public function __construct()
@@ -230,6 +224,13 @@ class Peg
 		$this->moves = array();
 	}
 	
+	
+	public function play()
+	{
+		
+	}
+	
+	
 	/**
 	 * Renders the board in HTML.
 	 */
@@ -257,28 +258,6 @@ class Peg
 		$render .= '</table></div></div>';
 		
 		return $render;
-	}
-	
-	/**
-	 * Starts the game and play until there's no mor available movements.
-	 */
-	public function play()
-	{
-		if($this->renderPlay)
-		{
-			echo $this->renderBoard();
-		}
-		
-		if($this->playToWin)
-		{
-			$this->findLMove();
-			$this->findLMove();
-		}
-		
-		while($this->getAvailableMoves())
-		{
-			$this->findMove();
-		}
 	}
 	
 	
@@ -456,32 +435,48 @@ class Peg
 	
 	
 	/**
-	 * Find next move.
-	 * If playing to win, finds movements in a convinient order. Otherwise, randomizes the choices.
+	 * Find moves path to win.
 	 */
-	private function findMove()
+	private function findPaths()
 	{
-		if( ($this->playToWin || rand(0,1)) && $this->findRectangleMove())
+		$paths = array();
+		
+		$moves = $this->findRectangleMove();
+		if(empty($moves))
 		{
+			$moves = $this->findBigLMove();
+			if(empty($moves))
+			{
+				$moves = $this->findLMove();
+				if(empty($moves))
+				{
+					$moves = $this->findSimpleMove();
+					if(empty($moves))
+					{
+						if(count($this->moves) < 32)
+						{
+							unset($this);
+						}
+					}
+				}
+			}
+			
 			return true;
 		}
 		
-		if( ($this->playToWin || rand(0,1)) && $this->findBigLMove())
+		foreach($moves as $move)
 		{
-			return true;
+			$paths[] = clone $this;
+			
+			foreach($move as $m)
+			{
+				$this->moveTo($m[0], $m[1], $m[]2);
+			}
+			
+			$paths[count($paths) - 1]->findPaths();
 		}
 		
-		if(($this->playToWin || rand(0,1)) && $this->findLMove())
-		{
-			return true;
-		}
-		
-		if(($this->playToWin || rand(0,1)) && $this->findSimpleMove())
-		{
-			return true;
-		}
-		
-		return false;
+		return $paths;
 	}
 	
 	
@@ -495,13 +490,17 @@ class Peg
 	 *     X
 	 *     X X X
 	 *
+	 *
+	 * @return array 	Possible moves.
 	 */
 	private function findBigLMove()
 	{
+		$moves = array();
+		
 		// Top
 		try
 		{
-			if(	($this->playToWin || rand(0,1)) &&
+			if(
 				$this->board[3][-1]->hasMarble &&
 				$this->board[3][0]->hasMarble &&
 				$this->board[3][1]->hasMarble
@@ -517,30 +516,31 @@ class Peg
 					)
 				)
 				{
-					if($this->board[1][-2]->hasMarble && !$this->board[1][0]->hasMarble)
-					{
-						$this->moveTo('right', 1, -2);
-					}
-					else
-					{
-						$this->moveTo('left', 1, 0);
-					}
-					
-					$this->moveTo('down', 3, -1);
-					$this->moveTo('left', 3, 1);
-					$this->moveTo('up', 0, -1);
-					$this->moveTo('down', 3, -1);
+					$moves[0] = array();
 					
 					if($this->board[1][-2]->hasMarble && !$this->board[1][0]->hasMarble)
 					{
-						$this->moveTo('right', 1, -2);
+						//$this->moveTo('right', 1, -2);
+						$moves[0][] = array('right', 1, -2);
 					}
 					else
 					{
-						$this->moveTo('left', 1, 0);
+						$moves[0][] = array('left', 1, 0);
 					}
 					
-					return true;
+					$moves[0][] = array('down', 3, -1);
+					$moves[0][] = array('left', 3, 1);
+					$moves[0][] = array('up', 0, -1);
+					$moves[0][] = array('down', 3, -1);
+					
+					if($this->board[1][-2]->hasMarble && !$this->board[1][0]->hasMarble)
+					{
+						$moves[0][] = array('right', 1, -2);
+					}
+					else
+					{
+						$moves[0][] = array('left', 1, 0);
+					}
 				}
 				
 				// Right
@@ -553,30 +553,30 @@ class Peg
 					)
 				)
 				{
-					if($this->board[1][2]->hasMarble && !$this->board[1][0]->hasMarble)
-					{
-						$this->moveTo('left', 1, 2);
-					}
-					else
-					{
-						$this->moveTo('right', 1, 0);
-					}
-					
-					$this->moveTo('down', 3, 1);
-					$this->moveTo('right', 3, -1);
-					$this->moveTo('up', 0, 1);
-					$this->moveTo('down', 3, 1);
+					$moves[1] = array();
 					
 					if($this->board[1][2]->hasMarble && !$this->board[1][0]->hasMarble)
 					{
-						$this->moveTo('left', 1, 2);
+						$moves[1][] = array('left', 1, 2);
 					}
 					else
 					{
-						$this->moveTo('right', 1, 0);
+						$moves[1][] = array('right', 1, 0);
 					}
 					
-					return true;
+					$moves[1][] = array('down', 3, 1);
+					$moves[1][] = array('right', 3, -1);
+					$moves[1][] = array('up', 0, 1);
+					$moves[1][] = array('down', 3, 1);
+					
+					if($this->board[1][2]->hasMarble && !$this->board[1][0]->hasMarble)
+					{
+						$moves[1][] = array('left', 1, 2);
+					}
+					else
+					{
+						$moves[1][] = array('right', 1, 0);
+					}
 				}
 			}
 		}
@@ -586,7 +586,7 @@ class Peg
 		// Down
 		try
 		{
-			if(	($this->playToWin || rand(0,1)) &&
+			if(
 				$this->board[-3][-1]->hasMarble &&
 				$this->board[-3][0]->hasMarble &&
 				$this->board[-3][1]->hasMarble
@@ -602,30 +602,30 @@ class Peg
 					)
 				)
 				{
-					if($this->board[-1][-2]->hasMarble && !$this->board[-1][0]->hasMarble)
-					{
-						$this->moveTo('right', -1, -2);
-					}
-					else
-					{
-						$this->moveTo('left', -1, 0);
-					}
-					
-					$this->moveTo('up', -3, -1);
-					$this->moveTo('left', -3, 1);
-					$this->moveTo('down', 0, -1);
-					$this->moveTo('up', -3, -1);
+					$moves[2] = array();
 					
 					if($this->board[-1][-2]->hasMarble && !$this->board[-1][0]->hasMarble)
 					{
-						$this->moveTo('right', -1, -2);
+						$moves[2][] = array('right', -1, -2);
 					}
 					else
 					{
-						$this->moveTo('left', -1, 0);
+						$moves[2][] = array('left', -1, 0);
 					}
 					
-					return true;
+					$moves[2][] = array('up', -3, -1);
+					$moves[2][] = array('left', -3, 1);
+					$moves[2][] = array('down', 0, -1);
+					$moves[2][] = array('up', -3, -1);
+					
+					if($this->board[-1][-2]->hasMarble && !$this->board[-1][0]->hasMarble)
+					{
+						$moves[2][] = array('right', -1, -2);
+					}
+					else
+					{
+						$moves[2][] = array('left', -1, 0);
+					}
 				}
 				
 				// Right
@@ -638,30 +638,30 @@ class Peg
 					)
 				)
 				{
-					if($this->board[-1][2]->hasMarble && !$this->board[-1][0]->hasMarble)
-					{
-						$this->moveTo('left', -1, 2);
-					}
-					else
-					{
-						$this->moveTo('right', -1, 0);
-					}
-					
-					$this->moveTo('up', -3, 1);
-					$this->moveTo('right', -3, -1);
-					$this->moveTo('down', 0, 1);
-					$this->moveTo('up', -3, 1);
+					$moves[3] = array();
 					
 					if($this->board[-1][2]->hasMarble && !$this->board[-1][0]->hasMarble)
 					{
-						$this->moveTo('left', -1, 2);
+						$moves[3][] = array('left', -1, 2);
 					}
 					else
 					{
-						$this->moveTo('right', -1, 0);
+						$moves[3][] = array('right', -1, 0);
 					}
 					
-					return true;
+					$moves[3][] = array('up', -3, 1);
+					$moves[3][] = array('right', -3, -1);
+					$moves[3][] = array('down', 0, 1);
+					$moves[3][] = array('up', -3, 1);
+					
+					if($this->board[-1][2]->hasMarble && !$this->board[-1][0]->hasMarble)
+					{
+						$moves[3][] = array('left', -1, 2);
+					}
+					else
+					{
+						$moves[3][] = array('right', -1, 0);
+					}
 				}
 			}
 		}
@@ -687,30 +687,30 @@ class Peg
 					)
 				)
 				{
-					if($this->board[2][-1]->hasMarble && !$this->board[0][-1]->hasMarble)
-					{
-						$this->moveTo('down', 2, -1);
-					}
-					else
-					{
-						$this->moveTo('up', 0, -1);
-					}
-					
-					$this->moveTo('right', 1, -3);
-					$this->moveTo('up', -1, -3);
-					$this->moveTo('left', 1, 0);
-					$this->moveTo('right', 1, -3);
+					$moves[4] = array();
 					
 					if($this->board[2][-1]->hasMarble && !$this->board[0][-1]->hasMarble)
 					{
-						$this->moveTo('down', 2, -1);
+						$moves[4][] = array('down', 2, -1);
 					}
 					else
 					{
-						$this->moveTo('up', 0, -1);
+						$moves[4][] = array('up', 0, -1);
 					}
 					
-					return true;
+					$moves[4][] = array('right', 1, -3);
+					$moves[4][] = array('up', -1, -3);
+					$moves[4][] = array('left', 1, 0);
+					$moves[4][] = array('right', 1, -3);
+					
+					if($this->board[2][-1]->hasMarble && !$this->board[0][-1]->hasMarble)
+					{
+						$moves[4][] = array('down', 2, -1);
+					}
+					else
+					{
+						$moves[4][] = array('up', 0, -1);
+					}
 				}
 				
 				// Down
@@ -723,30 +723,30 @@ class Peg
 					)
 				)
 				{
-					if($this->board[-2][-1]->hasMarble && !$this->board[0][-1]->hasMarble)
-					{
-						$this->moveTo('up', -2, -1);
-					}
-					else
-					{
-						$this->moveTo('down', 0, -1);
-					}
-					
-					$this->moveTo('right', -1, -3);
-					$this->moveTo('down', 1, -3);
-					$this->moveTo('left', 1, 0);
-					$this->moveTo('right', -1, -3);
+					$moves[5] = array();
 					
 					if($this->board[-2][-1]->hasMarble && !$this->board[0][-1]->hasMarble)
 					{
-						$this->moveTo('up', 2, -1);
+						$moves[5][] = array('up', -2, -1);
 					}
 					else
 					{
-						$this->moveTo('down', 0, -1);
+						$moves[5][] = array('down', 0, -1);
 					}
 					
-					return true;
+					$moves[5][] = array('right', -1, -3);
+					$moves[5][] = array('down', 1, -3);
+					$moves[5][] = array('left', 1, 0);
+					$moves[5][] = array('right', -1, -3);
+					
+					if($this->board[-2][-1]->hasMarble && !$this->board[0][-1]->hasMarble)
+					{
+						$moves[5][] = array('up', 2, -1);
+					}
+					else
+					{
+						$moves[5][] = array('down', 0, -1);
+					}
 				}
 			}
 		}
@@ -772,30 +772,30 @@ class Peg
 					)
 				)
 				{
-					if($this->board[2][1]->hasMarble && !$this->board[0][1]->hasMarble)
-					{
-						$this->moveTo('down', 2, 1);
-					}
-					else
-					{
-						$this->moveTo('up', 0, 1);
-					}
-					
-					$this->moveTo('left', 1, 3);
-					$this->moveTo('up', -1, 3);
-					$this->moveTo('right', 1, 0);
-					$this->moveTo('left', 1, 3);
+					$moves[6] = array();
 					
 					if($this->board[2][1]->hasMarble && !$this->board[0][1]->hasMarble)
 					{
-						$this->moveTo('down', 2, 1);
+						$moves[6][] = array('down', 2, 1);
 					}
 					else
 					{
-						$this->moveTo('up', 0, 1);
+						$moves[6][] = array('up', 0, 1);
 					}
 					
-					return true;
+					$moves[6][] = array('left', 1, 3);
+					$moves[6][] = array('up', -1, 3);
+					$moves[6][] = array('right', 1, 0);
+					$moves[6][] = array('left', 1, 3);
+					
+					if($this->board[2][1]->hasMarble && !$this->board[0][1]->hasMarble)
+					{
+						$moves[6][] = array('down', 2, 1);
+					}
+					else
+					{
+						$moves[6][] = array('up', 0, 1);
+					}
 				}
 				
 				// Down
@@ -808,37 +808,37 @@ class Peg
 					)
 				)
 				{
-					if($this->board[-2][1]->hasMarble && !$this->board[0][1]->hasMarble)
-					{
-						$this->moveTo('up', -2, 1);
-					}
-					else
-					{
-						$this->moveTo('down', 0, 1);
-					}
-					
-					$this->moveTo('left', -1, 3);
-					$this->moveTo('down', 1, 3);
-					$this->moveTo('right', -1, 0);
-					$this->moveTo('left', -1, 3);
+					$moves[7] = array();
 					
 					if($this->board[-2][1]->hasMarble && !$this->board[0][1]->hasMarble)
 					{
-						$this->moveTo('up', -2, 1);
+						$moves[7][] = array('up', -2, 1);
 					}
 					else
 					{
-						$this->moveTo('down', 0, 1);
+						$moves[7][] = array('down', 0, 1);
 					}
 					
-					return true;
+					$moves[7][] = array('left', -1, 3);
+					$moves[7][] = array('down', 1, 3);
+					$moves[7][] = array('right', -1, 0);
+					$moves[7][] = array('left', -1, 3);
+					
+					if($this->board[-2][1]->hasMarble && !$this->board[0][1]->hasMarble)
+					{
+						$moves[7][] = array('up', -2, 1);
+					}
+					else
+					{
+						$moves[7][] = array('down', 0, 1);
+					}
 				}
 			}
 		}
 		catch(Exception $e) {};
 		
 		
-		return false;
+		return $moves;
 	}
 	
 	
@@ -850,9 +850,13 @@ class Peg
 	 *         O
 	 *     X X X
 	 *         X
+	 *
+	 * @return array 	Possible moves.
 	 */
 	private function findLMove()
 	{
+		$moves = array();
+		
 		for($i = 3; $i >= -3; $i--)
 		{
 			for($j = -3; $j <= 3; $j++)
@@ -865,50 +869,36 @@ class Peg
 					{
 						// Right Down
 						if(
-							($this->playToWin || rand(0,1)) &&
 							@$this->board[$i][$j + 1]->hasMarble &&
 							@$this->board[$i][$j + 2]->hasMarble &&
 							@$this->board[$i - 1][$j + 1]->hasMarble &&
 							@$this->board[$i - 2][$j + 1]->hasMarble
 						)
 						{
-							$this->moveTo('left', $i, $j + 2);
-							$this->moveTo('up', $i - 2, $j + 1);
-							$this->moveTo('right', $i, $j);
+							$moves[0] = array();
 							
-							return true;
+							$moves[0][] = array('left', $i, $j + 2);
+							$moves[0][] = array('up', $i - 2, $j + 1);
+							$moves[0][] = array('right', $i, $j);
 						}
 					}
 					catch(Exception $e) {} // Not available
-					
-					/**
-					 * The order of the search it's made for winning purposes. 
-					 * If play to win, the second move should avoid repeat a L move on the center hole- 
-					 */
-					if($this->playToWin)
-					{
-						if($i == 0 && $j == 0)
-						{
-							continue;
-						}
-					}
 					
 					try
 					{
 						// Top Left
 						if(
-							($this->playToWin || rand(0,1)) &&
 							@$this->board[$i + 1][$j]->hasMarble &&
 							@$this->board[$i + 2][$j]->hasMarble &&
 							@$this->board[$i + 1][$j - 1]->hasMarble &&
 							@$this->board[$i + 1][$j - 2]->hasMarble
 						)
 						{
-							$this->moveTo('down', $i + 2, $j);
-							$this->moveTo('right', $i + 1, $j - 2);
-							$this->moveTo('up', $i, $j);
+							$moves[1] = array();
 							
-							return true;
+							$moves[1][] = array('down', $i + 2, $j);
+							$moves[1][] = array('right', $i + 1, $j - 2);
+							$moves[1][] = array('up', $i, $j);
 						}
 					}
 					catch(Exception $e) {} // Not available
@@ -918,18 +908,17 @@ class Peg
 					{
 						// Down Right
 						if(
-							($this->playToWin || rand(0,1)) &&
 							@$this->board[$i - 1][$j]->hasMarble &&
 							@$this->board[$i - 2][$j]->hasMarble &&
 							@$this->board[$i - 1][$j + 1]->hasMarble &&
 							@$this->board[$i - 1][$j + 2]->hasMarble
 						)
 						{
-							$this->moveTo('up', $i - 2, $j);
-							$this->moveTo('left', $i - 1, $j + 2);
-							$this->moveTo('down', $i, $j);
+							$moves[2] = array();
 							
-							return true;
+							$moves[2][] = array('up', $i - 2, $j);
+							$moves[2][] = array('left', $i - 1, $j + 2);
+							$moves[2][] = array('down', $i, $j);
 						}
 					}
 					catch(Exception $e) {}// Not available
@@ -938,38 +927,36 @@ class Peg
 					{
 						// Down Left
 						if(
-							($this->playToWin || rand(0,1)) &&
 							@$this->board[$i - 1][$j]->hasMarble &&
 							@$this->board[$i - 2][$j]->hasMarble &&
 							@$this->board[$i - 1][$j - 1]->hasMarble &&
 							@$this->board[$i - 1][$j - 2]->hasMarble
 						)
 						{
-							$this->moveTo('up', $i - 2, $j);
-							$this->moveTo('right', $i - 1, $j - 2);
-							$this->moveTo('down', $i, $j);
+							$moves[3] = array();
 							
-							return true;
+							$moves[3][] = array('up', $i - 2, $j);
+							$moves[3][] = array('right', $i - 1, $j - 2);
+							$moves[3][] = array('down', $i, $j);
 						}
 					}
-					catch(Exception $e) {}// Not available
+					catch(Exception $ e) {}// Not available
 					
 					try
 					{
 						// Top Right
 						if(
-							($this->playToWin || rand(0,1)) &&
 							@$this->board[$i + 1][$j]->hasMarble &&
 							@$this->board[$i + 2][$j]->hasMarble &&
 							@$this->board[$i + 1][$j + 1]->hasMarble &&
 							@$this->board[$i + 1][$j + 2]->hasMarble
 						)
 						{
-							$this->moveTo('down', $i + 2, $j);
-							$this->moveTo('left', $i + 1, $j + 2);
-							$this->moveTo('up', $i, $j);
+							$moves[4] = array();
 							
-							return true;
+							$moves[4][] = array('down', $i + 2, $j);
+							$moves[4][] = array('left', $i + 1, $j + 2);
+							$moves[4][] = array('up', $i, $j);
 						}
 					}
 					catch(Exception $e) {} // Not available
@@ -978,18 +965,17 @@ class Peg
 					{
 						// Right Top
 						if(
-							($this->playToWin || rand(0,1)) &&
 							@$this->board[$i][$j + 1]->hasMarble &&
 							@$this->board[$i][$j + 2]->hasMarble &&
 							@$this->board[$i + 1][$j + 1]->hasMarble &&
 							@$this->board[$i + 2][$j + 1]->hasMarble
 						)
 						{
-							$this->moveTo('left', $i, $j + 2);
-							$this->moveTo('down', $i + 2, $j + 1);
-							$this->moveTo('right', $i, $j);
+							$moves[5] = array();
 							
-							return true;
+							$moves[5][] = array('left', $i, $j + 2);
+							$moves[5][] = array('down', $i + 2, $j + 1);
+							$moves[5][] = array('right', $i, $j);
 						}
 					}
 					catch(Exception $e) {}// Not available
@@ -998,18 +984,17 @@ class Peg
 					{
 						// Left Top
 						if(
-							($this->playToWin || rand(0,1)) &&
 							@$this->board[$i][$j - 1]->hasMarble &&
 							@$this->board[$i][$j - 2]->hasMarble &&
 							@$this->board[$i + 1][$j - 1]->hasMarble &&
 							@$this->board[$i + 2][$j - 1]->hasMarble
 						)
 						{
-							$this->moveTo('right', $i, $j - 2);
-							$this->moveTo('down', $i + 2, $j - 1);
-							$this->moveTo('left', $i, $j);
+							$moves[6] = array();
 							
-							return true;
+							$moves[6][] = array('right', $i, $j - 2);
+							$moves[6][] = array('down', $i + 2, $j - 1);
+							$moves[6][] = array('left', $i, $j);
 						}
 					}
 					catch(Exception $e) {}// Not available
@@ -1018,18 +1003,17 @@ class Peg
 					{
 						// Left Down
 						if(
-							($this->playToWin || rand(0,1)) &&
 							@$this->board[$i][$j - 1]->hasMarble &&
 							@$this->board[$i][$j - 2]->hasMarble &&
 							@$this->board[$i - 1][$j - 1]->hasMarble &&
 							@$this->board[$i - 2][$j - 1]->hasMarble
 						)
 						{
-							$this->moveTo('right', $i, $j - 2);
-							$this->moveTo('up', $i - 2, $j - 1);
-							$this->moveTo('left', $i, $j);
+							$moves[7] = array();
 							
-							return true;
+							$moves[7][] = array('right', $i, $j - 2);
+							$moves[7][] = array('up', $i - 2, $j - 1);
+							$moves[7][] = array('left', $i, $j);
 						}
 					}
 					catch(Exception $e) {}// Not available
@@ -1037,7 +1021,7 @@ class Peg
 			}
 		}
 		
-		return false;
+		return $moves;
 	}
 	
 	
@@ -1049,9 +1033,13 @@ class Peg
 	 *   X O O O
 	 *     X X X
 	 *     X X X
+	 *
+	 * @return array 	Possible moves.
 	 */
 	private function findRectangleMove()
 	{
+		$moves = array();
+		
 		// Top Area
 		try
 		{
@@ -1071,22 +1059,24 @@ class Peg
 					(!$this->board[1][1]->hasMarble && $this->board[0][1]->hasMarble)
 				)
 				{
-					$this->moveTo('down', 3, -1);
-					$this->moveTo('down', 3, 0);
+					$moves[0] = array();
+					
+					$moves[0][] = array('down', 3, -1);
+					$moves[0][] = array('down', 3, 0);
 					
 					if(!$this->board[1][1]->hasMarble)
 					{
-						$this->moveTo('down', 3, 1);
-						$this->moveTo('up', 0, 1);
-						$this->moveTo('right', 1, -1);
-						$this->moveTo('down', 2, 1);
+						$moves[0][] = array('down', 3, 1);
+						$moves[0][] = array('up', 0, 1);
+						$moves[0][] = array('right', 1, -1);
+						$moves[0][] = array('down', 2, 1);
 					}
 					else
 					{
-						$this->moveTo('down', 2, 1);
-						$this->moveTo('right', 1, -1);
-						$this->moveTo('up', 0, 1);
-						$this->moveTo('down', 3, 1);
+						$moves[0][] = array('down', 2, 1);
+						$moves[0][] = array('right', 1, -1);
+						$moves[0][] = array('up', 0, 1);
+						$moves[0][] = array('down', 3, 1);
 					}
 				}
 				
@@ -1096,72 +1086,74 @@ class Peg
 					(!$this->board[1][-1]->hasMarble && $this->board[0][-1]->hasMarble)
 				)
 				{
-					$this->moveTo('down', 3, 1);
-					$this->moveTo('down', 3, 0);
+					$moves[1] = array()
+					
+					$moves[1][] = array('down', 3, 1);
+					$moves[1][] = array('down', 3, 0);
 					
 					if(!$this->board[1][-1]->hasMarble)
 					{
-						$this->moveTo('down', 3, -1);
-						$this->moveTo('up', 0, -1);
-						$this->moveTo('left', 1, 1);
-						$this->moveTo('down', 2, -1);
+						$moves[1][] = array('down', 3, -1);
+						$moves[1][] = array('up', 0, -1);
+						$moves[1][] = array('left', 1, 1);
+						$moves[1][] = array('down', 2, -1);
 					}
 					else
 					{
-						$this->moveTo('down', 2, -1);
-						$this->moveTo('left', 1, 1);
-						$this->moveTo('up', 0, -1);
-						$this->moveTo('down', 3, -1);
+						$moves[1][] = array('down', 2, -1);
+						$moves[1][] = array('left', 1, 1);
+						$moves[1][] = array('up', 0, -1);
+						$moves[1][] = array('down', 3, -1);
 					}
 				}
 				
 				
 				if($this->board[1][0]->hasMarble && !$this->board[1][-1]->hasMarble && !$this->board[1][-2]->hasMarble)
 				{
-					$this->moveTo('down', 3, -1);
-					$this->moveTo('left', 1, 0);
-					$this->moveTo('left', 3, 1);
-					$this->moveTo('left', 2, 1);
-					$this->moveTo('down', 3, -1);
-					$this->moveTo('right', 1, -2);
+					$moves[2] = array();
 					
-					return true;
+					$moves[2][] = array('down', 3, -1);
+					$moves[2][] = array('left', 1, 0);
+					$moves[2][] = array('left', 3, 1);
+					$moves[2][] = array('left', 2, 1);
+					$moves[2][] = array('down', 3, -1);
+					$moves[2][] = array('right', 1, -2);
 				}
 				
 				if(!$this->board[1][0]->hasMarble && !$this->board[1][-1]->hasMarble && $this->board[1][-2]->hasMarble)
 				{
-					$this->moveTo('down', 3, -1);
-					$this->moveTo('right', 1, -2);
-					$this->moveTo('left', 3, 1);
-					$this->moveTo('left', 2, 1);
-					$this->moveTo('down', 3, -1);
-					$this->moveTo('left', 1, 0);
+					$moves[3] = array();
 					
-					return true;
+					$moves[3][] = array('down', 3, -1);
+					$moves[3][] = array('right', 1, -2);
+					$moves[3][] = array('left', 3, 1);
+					$moves[3][] = array('left', 2, 1);
+					$moves[3][] = array('down', 3, -1);
+					$moves[3][] = array('left', 1, 0);
 				}
 				
 				if($this->board[1][0]->hasMarble && !$this->board[1][1]->hasMarble && !$this->board[1][2]->hasMarble)
 				{
-					$this->moveTo('down', 3, 1);
-					$this->moveTo('right', 1, 0);
-					$this->moveTo('right', 3, -1);
-					$this->moveTo('right', 2, -1);
-					$this->moveTo('down', 3, 1);
-					$this->moveTo('left', 1, 2);
+					$moves[4] = array();
 					
-					return true;
+					$moves[4][] = array('down', 3, 1);
+					$moves[4][] = array('right', 1, 0);
+					$moves[4][] = array('right', 3, -1);
+					$moves[4][] = array('right', 2, -1);
+					$moves[4][] = array('down', 3, 1);
+					$moves[4][] = array('left', 1, 2);
 				}
 				
 				if(!$this->board[1][0]->hasMarble && !$this->board[1][1]->hasMarble && $this->board[1][2]->hasMarble)
 				{
-					$this->moveTo('down', 3, 1);
-					$this->moveTo('left', 1, 2);
-					$this->moveTo('right', 3, -1);
-					$this->moveTo('right', 2, -1);
-					$this->moveTo('down', 3, 1);
-					$this->moveTo('right', 1, 0);
+					$moves[5][] = array();
 					
-					return true;
+					$moves[5][] = array('down', 3, 1);
+					$moves[5][] = array('left', 1, 2);
+					$moves[5][] = array('right', 3, -1);
+					$moves[5][] = array('right', 2, -1);
+					$moves[5][] = array('down', 3, 1);
+					$moves[5][] = array('right', 1, 0);
 				}
 			}
 		}
@@ -1172,7 +1164,6 @@ class Peg
 		try
 		{
 			if(
-				($this->playToWin || rand(0,1)) &&
 				$this->board[-3][-1]->hasMarble &&
 				$this->board[-3][0]->hasMarble &&
 				$this->board[-3][1]->hasMarble &&
@@ -1187,22 +1178,24 @@ class Peg
 					(!$this->board[-1][1]->hasMarble && $this->board[0][1]->hasMarble)
 				)
 				{
-					$this->moveTo('up', -3, -1);
-					$this->moveTo('up', -3, 0);
+					$moves[6] = array();
+					
+					$moves[6][] = array('up', -3, -1);
+					$moves[6][] = array('up', -3, 0);
 					
 					if(!$this->board[-1][1]->hasMarble)
 					{
-						$this->moveTo('up', -3, 1);
-						$this->moveTo('down', 0, 1);
-						$this->moveTo('right', -1, -1);
-						$this->moveTo('up', -2, 1);
+						$moves[6][] = array('up', -3, 1);
+						$moves[6][] = array('down', 0, 1);
+						$moves[6][] = array('right', -1, -1);
+						$moves[6][] = array('up', -2, 1);
 					}
 					else
 					{
-						$this->moveTo('up', -2, 1);
-						$this->moveTo('right', -1, -1);
-						$this->moveTo('down', 0, 1);
-						$this->moveTo('up', -3, 1);
+						$moves[6][] = array('up', -2, 1);
+						$moves[6][] = array('right', -1, -1);
+						$moves[6][] = array('down', 0, 1);
+						$moves[6][] = array('up', -3, 1);
 					}
 				}
 				
@@ -1212,71 +1205,73 @@ class Peg
 					(!$this->board[-1][-1]->hasMarble && $this->board[0][-1]->hasMarble)
 				)
 				{
-					$this->moveTo('up', -3, 1);
-					$this->moveTo('up', -3, 0);
+					$moves[7] = array();
+					
+					$moves[7][] = array('up', -3, 1);
+					$moves[7][] = array('up', -3, 0);
 					
 					if(!$this->board[-1][-1]->hasMarble)
 					{
-						$this->moveTo('up', -3, -1);
-						$this->moveTo('down', 0, -1);
-						$this->moveTo('left', -1, 1);
-						$this->moveTo('up', -2, -1);
+						$moves[7][] = array('up', -3, -1);
+						$moves[7][] = array('down', 0, -1);
+						$moves[7][] = array('left', -1, 1);
+						$moves[7][] = array('up', -2, -1);
 					}
 					else
 					{
-						$this->moveTo('up', -2, -1);
-						$this->moveTo('left', -1, 1);
-						$this->moveTo('down', 0, -1);
-						$this->moveTo('up', -3, -1);
+						$moves[7][] = array('up', -2, -1);
+						$moves[7][] = array('left', -1, 1);
+						$moves[7][] = array('down', 0, -1);
+						$moves[7][] = array('up', -3, -1);
 					}
 				}
 				
 				if($this->board[-1][0]->hasMarble && !$this->board[-1][1]->hasMarble && !$this->board[-1][-2]->hasMarble)
 				{
-					$this->moveTo('up', -3, -1);
-					$this->moveTo('left', -1, 0);
-					$this->moveTo('left', -3, 1);
-					$this->moveTo('left', -2, 1);
-					$this->moveTo('up', -3, -1);
-					$this->moveTo('right', -1, -2);
+					$moves[8] = array();
 					
-					return true;
+					$moves[8][] = array('up', -3, -1);
+					$moves[8][] = array('left', -1, 0);
+					$moves[8][] = array('left', -3, 1);
+					$moves[8][] = array('left', -2, 1);
+					$moves[8][] = array('up', -3, -1);
+					$moves[8][] = array('right', -1, -2);
 				}
 				
 				if(!$this->board[-1][0]->hasMarble && !$this->board[-1][1]->hasMarble && $this->board[-1][-2]->hasMarble)
 				{
-					$this->moveTo('up', -3, -1);
-					$this->moveTo('right', -1, -2);
-					$this->moveTo('left', -3, 1);
-					$this->moveTo('left', -2, 1);
-					$this->moveTo('up', -3, -1);
-					$this->moveTo('left', -1, 0);
+					$moves[9] = array();
 					
-					return true;
+					$moves[9][] = array('up', -3, -1);
+					$moves[9][] = array('right', -1, -2);
+					$moves[9][] = array('left', -3, 1);
+					$moves[9][] = array('left', -2, 1);
+					$moves[9][] = array('up', -3, -1);
+					$moves[9][] = array('left', -1, 0);
 				}
 				
 				if($this->board[-1][0]->hasMarble && !$this->board[-1][1]->hasMarble && !$this->board[-1][2]->hasMarble)
 				{
-					$this->moveTo('up', -3, 1);
-					$this->moveTo('right', -1, 0);
-					$this->moveTo('right', -3, -1);
-					$this->moveTo('right', -2, -1);
-					$this->moveTo('up', -3, 1);
-					$this->moveTo('left', -1, 2);
+					$moves[10] = array();
 					
-					return true;
+					$moves[10][] = array('up', -3, 1);
+					$moves[10][] = array('right', -1, 0);
+					$moves[10][] = array('right', -3, -1);
+					$moves[10][] = array('right', -2, -1);
+					$moves[10][] = array('up', -3, 1);
+					$moves[10][] = array('left', -1, 2);
 				}
 				
 				if(!$this->board[-1][0]->hasMarble && !$this->board[-1][1]->hasMarble && $this->board[-1][2]->hasMarble)
 				{
-					$this->moveTo('up', -3, 1);
-					$this->moveTo('left', -1, 2);
-					$this->moveTo('right', -3, -1);
-					$this->moveTo('right', -2, -1);
-					$this->moveTo('up', -3, 1);
-					$this->moveTo('right', -1, 0);
+					$moves[11] = array();
 					
-					return true;
+					$moves[11][] = array('up', -3, 1);
+					$moves[11][] = array('left', -1, 2);
+					$moves[11][] = array('right', -3, -1);
+					$moves[11][] = array('right', -2, -1);
+					$moves[11][] = array('up', -3, 1);
+					$moves[11][] = array('right', -1, 0);
 				}
 			}
 		}
@@ -1287,7 +1282,6 @@ class Peg
 		try
 		{
 			if(
-				($this->playToWin || rand(0,1)) &&
 				$this->board[1][-3]->hasMarble &&
 				$this->board[1][-2]->hasMarble &&
 				$this->board[0][-3]->hasMarble &&
@@ -1302,22 +1296,24 @@ class Peg
 					(!$this->board[1][-1]->hasMarble && $this->board[1][0]->hasMarble)
 				)
 				{
-					$this->moveTo('right', 0, -3);
-					$this->moveTo('right', -1, -3);
+					$moves[12] = array();
+					
+					$moves[12][] = array('right', 0, -3);
+					$moves[12][] = array('right', -1, -3);
 					
 					if(!$this->board[1][-1]->hasMarble)
 					{
-						$this->moveTo('right', 1, -3);
-						$this->moveTo('left', 1, 0);
-						$this->moveTo('up', -1, -1);
-						$this->moveTo('right', 1, -2);
+						$moves[12][] = array('right', 1, -3);
+						$moves[12][] = array('left', 1, 0);
+						$moves[12][] = array('up', -1, -1);
+						$moves[12][] = array('right', 1, -2);
 					}
 					else
 					{
-						$this->moveTo('right', 1, -2);
-						$this->moveTo('up', -1, -1);
-						$this->moveTo('left', 1, 0);
-						$this->moveTo('right', 1, -3);
+						$moves[12][] = array('right', 1, -2);
+						$moves[12][] = array('up', -1, -1);
+						$moves[12][] = array('left', 1, 0);
+						$moves[12][] = array('right', 1, -3);
 					}
 				}
 				
@@ -1327,71 +1323,73 @@ class Peg
 					(!$this->board[-1][-1]->hasMarble && $this->board[-1][0]->hasMarble)
 				)
 				{
-					$this->moveTo('right', 0, -3);
-					$this->moveTo('right', 1, -3);
+					$moves[13] = array();
+					
+					$moves[13][] = array('right', 0, -3);
+					$moves[13][] = array('right', 1, -3);
 					
 					if(!$this->board[-1][-1]->hasMarble)
 					{
-						$this->moveTo('right', -1, -3);
-						$this->moveTo('left', -1, 0);
-						$this->moveTo('down', 1, -1);
-						$this->moveTo('right', -1, -2);
+						$moves[13][] = array('right', -1, -3);
+						$moves[13][] = array('left', -1, 0);
+						$moves[13][] = array('down', 1, -1);
+						$moves[13][] = array('right', -1, -2);
 					}
 					else
 					{
-						$this->moveTo('right', -1, -2);
-						$this->moveTo('down', 1, -1);
-						$this->moveTo('left', -1, 0);
-						$this->moveTo('right', -1, -3);
+						$moves[13][] = array('right', -1, -2);
+						$moves[13][] = array('down', 1, -1);
+						$moves[13][] = array('left', -1, 0);
+						$moves[13][] = array('right', -1, -3);
 					}
 				}
 				
 				if($this->board[0][-1]->hasMarble && !$this->board[1][-1]->hasMarble && !$this->board[2][-1]->hasMarble)
 				{
-					$this->moveTo('right', 1, -3);
-					$this->moveTo('up', 0, -1);
-					$this->moveTo('up', -1, -3);
-					$this->moveTo('up', -1, -2);
-					$this->moveTo('right', 1, -3);
-					$this->moveTo('down', 2, -1);
+					$moves[14] = array();
 					
-					return true;
+					$moves[14][] = array('right', 1, -3);
+					$moves[14][] = array('up', 0, -1);
+					$moves[14][] = array('up', -1, -3);
+					$moves[14][] = array('up', -1, -2);
+					$moves[14][] = array('right', 1, -3);
+					$moves[14][] = array('down', 2, -1);
 				}
 				
 				if(!$this->board[0][-1]->hasMarble && !$this->board[1][-1]->hasMarble && $this->board[2][-1]->hasMarble)
 				{
-					$this->moveTo('right', 1, -3);
-					$this->moveTo('down', 2, -1);
-					$this->moveTo('up', -1, -3);
-					$this->moveTo('up', -1, -2);
-					$this->moveTo('right', 1, -3);
-					$this->moveTo('up', 0, -1);
+					$moves[15] = array();
 					
-					return true;
+					$moves[15][] = array('right', 1, -3);
+					$moves[15][] = array('down', 2, -1);
+					$moves[15][] = array('up', -1, -3);
+					$moves[15][] = array('up', -1, -2);
+					$moves[15][] = array('right', 1, -3);
+					$moves[15][] = array('up', 0, -1);
 				}
 				
 				if($this->board[0][-1]->hasMarble && !$this->board[-1][-1]->hasMarble && !$this->board[-2][-1]->hasMarble)
 				{
-					$this->moveTo('right', -1, -3);
-					$this->moveTo('down', 0, -1);
-					$this->moveTo('down', 1, -3);
-					$this->moveTo('down', 1, -2);
-					$this->moveTo('right', -1, -3);
-					$this->moveTo('up', -2, -1);
+					$moves[16] = array();
 					
-					return true;
+					$moves[16][] = array('right', -1, -3);
+					$moves[16][] = array('down', 0, -1);
+					$moves[16][] = array('down', 1, -3);
+					$moves[16][] = array('down', 1, -2);
+					$moves[16][] = array('right', -1, -3);
+					$moves[16][] = array('up', -2, -1);
 				}
 				
 				if(!$this->board[0][-1]->hasMarble && !$this->board[-1][-1]->hasMarble && $this->board[-2][-1]->hasMarble)
 				{
-					$this->moveTo('right', -1, -3);
-					$this->moveTo('up', -2, -1);
-					$this->moveTo('down', 1, -3);
-					$this->moveTo('down', 1, -2);
-					$this->moveTo('right', -1, -3);
-					$this->moveTo('down', 0, -1);
+					$moves[17] = array();
 					
-					return true;
+					$moves[17][] = array('right', -1, -3);
+					$moves[17][] = array('up', -2, -1);
+					$moves[17][] = array('down', 1, -3);
+					$moves[17][] = array('down', 1, -2);
+					$moves[17][] = array('right', -1, -3);
+					$moves[17][] = array('down', 0, -1);
 				}
 			}
 		}
@@ -1402,7 +1400,6 @@ class Peg
 		try
 		{
 			if(
-				($this->playToWin || rand(0,1)) &&
 				$this->board[1][3]->hasMarble &&
 				$this->board[1][2]->hasMarble &&
 				$this->board[0][3]->hasMarble &&
@@ -1417,22 +1414,24 @@ class Peg
 					(!$this->board[1][1]->hasMarble && $this->board[1][0]->hasMarble)
 				)
 				{
-					$this->moveTo('left', 0, 3);
-					$this->moveTo('left', -1, 3);
+					$moves[18] = array();
+					
+					$moves[18][] = array('left', 0, 3);
+					$moves[18][] = array('left', -1, 3);
 					
 					if(!$this->board[1][1]->hasMarble)
 					{
-						$this->moveTo('left', 1, 3);
-						$this->moveTo('right', 1, 0);
-						$this->moveTo('up', -1, 1);
-						$this->moveTo('left', 1, 2);
+						$moves[18][] = array('left', 1, 3);
+						$moves[18][] = array('right', 1, 0);
+						$moves[18][] = array('up', -1, 1);
+						$moves[18][] = array('left', 1, 2);
 					}
 					else
 					{
-						$this->moveTo('left', 1, 2);
-						$this->moveTo('up', -1, 1);
-						$this->moveTo('right', 1, 0);
-						$this->moveTo('left', 1, 3);
+						$moves[18][] = array('left', 1, 2);
+						$moves[18][] = array('up', -1, 1);
+						$moves[18][] = array('right', 1, 0);
+						$moves[18][] = array('left', 1, 3);
 					}
 				}
 				
@@ -1443,110 +1442,91 @@ class Peg
 					(!$this->board[-1][1]->hasMarble && $this->board[-1][0]->hasMarble)
 				)
 				{
-					$this->moveTo('left', 0, 3);
-					$this->moveTo('left', 1, 3);
+					$moves[19] = array();
+					
+					$moves[19][] = array('left', 0, 3);
+					$moves[19][] = array('left', 1, 3);
 					
 					if(!$this->board[-1][1]->hasMarble)
 					{
-						$this->moveTo('left', -1, 3);
-						$this->moveTo('right', -1, 0);
-						$this->moveTo('down', 1, 1);
-						$this->moveTo('left', -1, 2);
+						$moves[19][] = array('left', -1, 3);
+						$moves[19][] = array('right', -1, 0);
+						$moves[19][] = array('down', 1, 1);
+						$moves[19][] = array('left', -1, 2);
 					}
 					else
 					{
-						$this->moveTo('left', -1, 2);
-						$this->moveTo('down', 1, 1);
-						$this->moveTo('right', -1, 0);
-						$this->moveTo('left', -1, 3);
+						$moves[19][] = array('left', -1, 2);
+						$moves[19][] = array('down', 1, 1);
+						$moves[19][] = array('right', -1, 0);
+						$moves[19][] = array('left', -1, 3);
 					}
-					
-					
 				}
 				
 				
 				if($this->board[0][1]->hasMarble && !$this->board[1][1]->hasMarble && !$this->board[2][1]->hasMarble)
 				{
-					$this->moveTo('left', 1, 3);
-					$this->moveTo('up', 0, 1);
-					$this->moveTo('up', -1, 3);
-					$this->moveTo('up', -1, 2);
-					$this->moveTo('left', 1, 3);
-					$this->moveTo('down', 2, 1);
+					$moves[20] = array();
 					
-					return true;
+					$moves[20][] = array('left', 1, 3);
+					$moves[20][] = array('up', 0, 1);
+					$moves[20][] = array('up', -1, 3);
+					$moves[20][] = array('up', -1, 2);
+					$moves[20][] = array('left', 1, 3);
+					$moves[20][] = array('down', 2, 1);
 				}
 				
 				if(!$this->board[0][1]->hasMarble && !$this->board[1][1]->hasMarble && $this->board[2][1]->hasMarble)
 				{
-					$this->moveTo('left', 1, 3);
-					$this->moveTo('down', 2, 1);
-					$this->moveTo('up', -1, 3);
-					$this->moveTo('up', -1, 2);
-					$this->moveTo('left', 1, 3);
-					$this->moveTo('up', 0, 1);
+					$moves[21] = array();
 					
-					return true;
+					$moves[21][] = array('left', 1, 3);
+					$moves[21][] = array('down', 2, 1);
+					$moves[21][] = array('up', -1, 3);
+					$moves[21][] = array('up', -1, 2);
+					$moves[21][] = array('left', 1, 3);
+					$moves[21][] = array('up', 0, 1);
 				}
 				
 				if($this->board[0][1]->hasMarble && !$this->board[-1][1]->hasMarble && !$this->board[-2][1]->hasMarble)
 				{
-					$this->moveTo('left', -1, 3);
-					$this->moveTo('down', 0, 1);
-					$this->moveTo('down', 1, 3);
-					$this->moveTo('down', 1, 2);
-					$this->moveTo('left', -1, 3);
-					$this->moveTo('up', -2, 1);
+					$moves[22] = array();
 					
-					return true;
+					$moves[22][] = array('left', -1, 3);
+					$moves[22][] = array('down', 0, 1);
+					$moves[22][] = array('down', 1, 3);
+					$moves[22][] = array('down', 1, 2);
+					$moves[22][] = array('left', -1, 3);
+					$moves[22][] = array('up', -2, 1);
 				}
 				
 				if(!$this->board[0][1]->hasMarble && !$this->board[-1][1]->hasMarble && $this->board[-2][1]->hasMarble)
 				{
-					$this->moveTo('left', -1, 3);
-					$this->moveTo('up', -2, 1);
-					$this->moveTo('down', 1, 3);
-					$this->moveTo('down', 1, 2);
-					$this->moveTo('left', -1, 3);
-					$this->moveTo('down', 0, 1);
+					$moves[23] = array();
 					
-					return true;
+					$moves[23][] = array('left', -1, 3);
+					$moves[23][] = array('up', -2, 1);
+					$moves[23][] = array('down', 1, 3);
+					$moves[23][] = array('down', 1, 2);
+					$moves[23][] = array('left', -1, 3);
+					$moves[23][] = array('down', 0, 1);
 				}
 			}
 		}
 		catch(Exception $e) {};
 		
-		
-		return false;
+		return $moves;
 	}
 	
 	
 	/**
 	 * Find a simple move to make.
+	 *
+	 * @return array 	Possible moves.
 	 */
 	private function findSimpleMove()
 	{
-		$availableMoves = $this->getAvailableMoves();
-		
-		if(count($availableMoves) > 0)
-		{
-			$move = $availableMoves[rand(0, count($availableMoves) -1)];
-			
-			$this->move($move[0], $move[1]);
-			
-			return true;
-		}
-		
-		return false;
-	}
-	
-	
-	/**
-	 * Gets all the available moves.
-	 */
-	private function getAvailableMoves()
-	{
-		$availableMoves = array();
+		$moves = array();
 		
 		for($i = 3; $i >= -3; $i--)
 		{
@@ -1560,10 +1540,9 @@ class Peg
 					{
 						foreach($this->moveDestinations as $direction)
 						{
-							$dest = $this->canMoveTo($direction, $i, $j);
-							if($dest)
+							if($this->canMoveTo($direction, $i, $j))
 							{
-								$availableMoves[] = array( array($i, $j), $dest);
+								$moves[] = array(array($direction, $i, $j));
 							}
 						}
 					}
@@ -1571,6 +1550,23 @@ class Peg
 			}
 		}
 		
-		return $availableMoves;
+		return $moves;
+	}
+	
+}
+
+
+/**
+ * Plays a Peg game using Peg class.
+ */
+class PegPlayer
+{
+	public $saveSolutions = false;
+	
+	public function play()
+	{
+		$peg = new Peg();
+		
+		$solutions = $peg->findPaths();
 	}
 }
