@@ -165,7 +165,7 @@ class Peg
 	 * Indicates if the game should render each move result.
 	 * @var boolean
 	 */
-	public $renderPlay = false;
+	public $renderPlay;
 	
 	
 	public function __construct()
@@ -288,65 +288,45 @@ class Peg
 		}
 	}
 	
+	
 	/**
-	 * Plays the game.
+	 * Plays the game using the moves found.
 	 */
-	public function play()
+	public function playMoves()
 	{
-		
-		
-		/*
-		//$winningSolutions = array();
-		
-		$pegs = array();
-		
-		$pegs[] = clone $this;
-		
-		while(true)
+		foreach($this->moves as $move)
 		{
-			foreach($pegs as $key => $peg)
-			{
-				
-			}
+			$this->move($move[0], $move[1]);
 		}
+	}
+	
+	
+	/**
+	 * Returns true if this game is a winner.
+	 *
+	 * @return (bool)
+	 */
+	public function winner()
+	{
+		$marbles = 0;
 		
-		
-		$solutions = $this->findPath();
-		
-		print_r($solutions);
-		return true;
-		
-		
-		echo (count($solutions));
-		
-		while(!empty($solutions))
+		for($i = 3; $i >= -3; $i--)
 		{
-			$newSolutions = array();
-			
-			foreach($solutions as $solution)
+			for($j = -3; $j <= 3; $j++)
 			{
-				$tmpSolutions = $solution->findPaths();
+				$hole = & $this->board[$i][$j];
 				
-				echo ' -> ' . (count($tmpSolutions));
-				
-				if(!empty($tmpSolutions))
+				if(	$hole )
 				{
-					$newSolutions = array_merge($newSolutions, $tmpSolutions);
-				}
-				else
-				{
-					if(count($solution->moves) == 32)
+					if($hole->hasMarble)
 					{
-						$winningSolutions[] = $solution;
+						$marbles++;
 					}
 				}
 			}
-			
-			$solutions = unserialize(serialize($newSolutions));
 		}
 		
-		return $winningSolutions;
-		*/
+		return ($marbles == 1);
 	}
 	
 	
@@ -380,7 +360,7 @@ class Peg
 				$newPeg->moveTo($m[0], $m[1], $m[2]);
 			}
 			
-			$pegs[] = clone $newPeg;
+			$pegs[] = $newPeg;
 		}
 		
 		return $pegs;
@@ -717,7 +697,7 @@ class Peg
 		// Left
 		try
 		{
-			if(	
+			if(
 				$this->board[1][-3]->hasMarble &&
 				$this->board[0][-3]->hasMarble &&
 				$this->board[-1][-3]->hasMarble
@@ -802,7 +782,7 @@ class Peg
 		// Right
 		try
 		{
-			if(	
+			if(
 				$this->board[1][3]->hasMarble &&
 				$this->board[0][3]->hasMarble &&
 				$this->board[-1][3]->hasMarble
@@ -1596,7 +1576,7 @@ class Peg
 		}
 		
 		return $moves;
-	}	
+	}
 }
 
 
@@ -1606,20 +1586,26 @@ class PegPlayer
 	{
 		$peg = new Peg();
 		
-		$this->playOptions( $peg );
-	}
-	
-	
-	private function playOptions( $peg )
-	{
-		$options = $peg->findPath();
+		$nextPegs = $peg->findPath();
 		
-		foreach($options as $newPeg)
+		while(!empty($nextPegs))
 		{
-			return $this->playOptions( $newPeg );
+			$pegs = unserialize(serialize($nextPegs));
+			
+			$nextPegs = array();
+			
+			foreach($pegs as $peg)
+			{
+				$tmp = $peg->findPath();
+				
+				foreach($tmp as $t)
+				{
+					$nextPegs[] = $t;
+				}
+			}
 		}
 		
-		return $options;
+		return $nextPegs;
 	}
 }
 
