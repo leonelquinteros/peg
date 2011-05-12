@@ -159,7 +159,7 @@ class Peg
 	 *
 	 * @var array
 	 */
-	private $moves;
+	public $moves;
 	
 	/**
 	 * Indicates if the game should render each move result.
@@ -293,9 +293,29 @@ class Peg
 	 */
 	public function play()
 	{
-		$winningSolutions = array();
 		
-		$solutions = $this->findPaths();
+		
+		/*
+		//$winningSolutions = array();
+		
+		$pegs = array();
+		
+		$pegs[] = clone $this;
+		
+		while(true)
+		{
+			foreach($pegs as $key => $peg)
+			{
+				
+			}
+		}
+		
+		
+		$solutions = $this->findPath();
+		
+		print_r($solutions);
+		return true;
+		
 		
 		echo (count($solutions));
 		
@@ -303,7 +323,7 @@ class Peg
 		{
 			$newSolutions = array();
 			
-			foreach($solutions as $sKey => $solution)
+			foreach($solutions as $solution)
 			{
 				$tmpSolutions = $solution->findPaths();
 				
@@ -322,10 +342,48 @@ class Peg
 				}
 			}
 			
-			$solutions = $newSolutions;
+			$solutions = unserialize(serialize($newSolutions));
 		}
 		
 		return $winningSolutions;
+		*/
+	}
+	
+	
+	/**
+	 * Find paths to win.
+	 */
+	public function findPath()
+	{
+		$pegs = array();
+		
+		$moves = $this->findRectangleMove();
+		if(empty($moves))
+		{
+			$moves = $this->findBigLMove();
+			if(empty($moves))
+			{
+				$moves = $this->findLMove();
+				if(empty($moves))
+				{
+					$moves = $this->findSimpleMove();
+				}
+			}
+		}
+		
+		foreach($moves as $move)
+		{
+			$newPeg = clone $this;
+			
+			foreach($move as $m)
+			{
+				$newPeg->moveTo($m[0], $m[1], $m[2]);
+			}
+			
+			$pegs[] = clone $newPeg;
+		}
+		
+		return $pegs;
 	}
 	
 	
@@ -469,49 +527,7 @@ class Peg
 	
 	
 	/**
-	 * Find moves path to win.
-	 */
-	private function findPaths()
-	{
-		$paths = array();
-		
-		$moves = $this->findRectangleMove();
-		if(empty($moves))
-		{
-			$moves = $this->findBigLMove();
-			if(empty($moves))
-			{
-				$moves = $this->findLMove();
-				if(empty($moves))
-				{
-					$moves = $this->findSimpleMove();
-					if(empty($moves))
-					{
-						if(count($this->moves) < 32)
-						{
-							unset($this);
-						}
-					}
-				}
-			}
-		}
-		
-		foreach($moves as $move)
-		{
-			$paths[] = clone $this;
-			
-			foreach($move as $m)
-			{
-				$paths[count($paths) - 1]->moveTo($m[0], $m[1], $m[2]);
-			}
-		}
-		
-		return $paths;
-	}
-	
-	
-	/**
-	 * Find moves available for Bog L blocks.
+	 * Find moves available for Big L blocks.
 	 *
 	 * Representation of a Big L block:
 	 *
@@ -701,7 +717,7 @@ class Peg
 		// Left
 		try
 		{
-			if(	($this->playToWin || rand(0,1)) &&
+			if(	
 				$this->board[1][-3]->hasMarble &&
 				$this->board[0][-3]->hasMarble &&
 				$this->board[-1][-3]->hasMarble
@@ -786,7 +802,7 @@ class Peg
 		// Right
 		try
 		{
-			if(	($this->playToWin || rand(0,1)) &&
+			if(	
 				$this->board[1][3]->hasMarble &&
 				$this->board[0][3]->hasMarble &&
 				$this->board[-1][3]->hasMarble
@@ -1074,7 +1090,6 @@ class Peg
 		try
 		{
 			if(
-				($this->playToWin || rand(0,1)) &&
 				$this->board[3][-1]->hasMarble &&
 				$this->board[3][0]->hasMarble &&
 				$this->board[3][1]->hasMarble &&
@@ -1581,6 +1596,30 @@ class Peg
 		}
 		
 		return $moves;
+	}	
+}
+
+
+class PegPlayer
+{
+	public function play()
+	{
+		$peg = new Peg();
+		
+		$this->playOptions( $peg );
 	}
 	
+	
+	private function playOptions( $peg )
+	{
+		$options = $peg->findPath();
+		
+		foreach($options as $newPeg)
+		{
+			return $this->playOptions( $newPeg );
+		}
+		
+		return $options;
+	}
 }
+

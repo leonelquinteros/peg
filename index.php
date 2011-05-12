@@ -1,7 +1,7 @@
 <?php
 require('peg.php');
 
-$peg = new Peg();
+$p = new PegPlayer();
 ?>
 
 <!DOCTYPE html>
@@ -14,7 +14,7 @@ $peg = new Peg();
 	
 	<body>
 		<?php
-		$solutions = $peg->play();
+		$solutions = $p->play();
 		
 		print_r($solutions);
 		
