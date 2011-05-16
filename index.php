@@ -18,7 +18,7 @@ $p = new PegPlayer();
 		
 		foreach($solutions as $i => $s)
 		{
-			echo "<h1>Solution $i</h1>";
+			echo '<h1>Solution ' . ($i + 1) . '</h1>';
 			
 			$s->renderPlay = true;
 			$s->saveGame();

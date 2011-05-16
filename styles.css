@@ -10,6 +10,11 @@
 		font: 14px Arial, sans-serif;
 	}
 	
+	h1 {
+		font: 22px Arial, sans-serif;
+		margin: 20px 0px;
+	}
+	
 	.boardContainer {
 		margin: 40px;
 		float: left;
