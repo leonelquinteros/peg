@@ -16,18 +16,20 @@ $p = new PegPlayer();
 		<?php
 		$solutions = $p->play();
 		
-		print_r($solutions);
-		
-		/*
-		foreach($solutions as $s)
+		foreach($solutions as $i => $s)
 		{
+			echo "<h1>Solution $i</h1>";
+			
 			$s->renderPlay = true;
 			$s->saveGame();
 			$s->playMoves();
 			
 			echo '<div style="clear:both;border-top:1px solid #444;">';
 		}
-		*/
+		
+		// Example of first game solution fetched from the DB.
+		echo "<h1>Last solution fetched from DB</h1>";
+		$s->playLastGame();
 		?>
 	</body>
 </html>

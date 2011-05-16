@@ -9,7 +9,7 @@ class PegDB
 	 */
 	private $dbHost 	= 'localhost';
 	private $dbUser 	= 'root';
-	private $dbPassword = '';
+	private $dbPassword = 'Mko0@wsx';
 	private $dbName		= 'peg';
 	
 	public function __construct()
@@ -172,7 +172,15 @@ class Peg
 	{
 		$this->moveDestinations = array('up', 'right', 'down', 'left');
 		$this->resetBoard();
+		$this->resetMoves();
 	}
+	
+	
+	function __clone()
+    {
+		$this->board = unserialize(serialize($this->board));
+    }
+	
 	
 	/**
 	 * Initializes the board array.
@@ -220,7 +228,11 @@ class Peg
 				}
 			}
 		}
-		
+	}
+	
+	
+	public function resetMoves()
+	{
 		$this->moves = array();
 	}
 	
@@ -290,43 +302,18 @@ class Peg
 	
 	
 	/**
-	 * Plays the game using the moves found.
+	 * Plays the game using the moves stored.
 	 */
 	public function playMoves()
 	{
-		foreach($this->moves as $move)
+		$this->resetBoard();
+		$moves = unserialize(serialize($this->moves));
+		$this->resetMoves();
+		
+		foreach($moves as $move)
 		{
 			$this->move($move[0], $move[1]);
 		}
-	}
-	
-	
-	/**
-	 * Returns true if this game is a winner.
-	 *
-	 * @return (bool)
-	 */
-	public function winner()
-	{
-		$marbles = 0;
-		
-		for($i = 3; $i >= -3; $i--)
-		{
-			for($j = -3; $j <= 3; $j++)
-			{
-				$hole = & $this->board[$i][$j];
-				
-				if(	$hole )
-				{
-					if($hole->hasMarble)
-					{
-						$marbles++;
-					}
-				}
-			}
-		}
-		
-		return ($marbles == 1);
 	}
 	
 	
@@ -336,18 +323,31 @@ class Peg
 	public function findPath()
 	{
 		$pegs = array();
+		$moves = array();
 		
-		$moves = $this->findRectangleMove();
+		$aux = $this->findRectangleMove();
+		foreach($aux as $move)
+		{
+			$moves[] = $move;
+		}
+		
+		$aux = $this->findBigLMove();
+		foreach($aux as $move)
+		{
+			$moves[] = $move;
+		}
+		
+		$aux = $this->findLMove();
+		foreach($aux as $move)
+		{
+			$moves[] = $move;
+		}
+		
 		if(empty($moves))
 		{
-			$moves = $this->findBigLMove();
-			if(empty($moves))
+			if(count($this->moves) > 28)
 			{
-				$moves = $this->findLMove();
-				if(empty($moves))
-				{
-					$moves = $this->findSimpleMove();
-				}
+				$moves = $this->findSimpleMove();
 			}
 		}
 		
@@ -360,7 +360,7 @@ class Peg
 				$newPeg->moveTo($m[0], $m[1], $m[2]);
 			}
 			
-			$pegs[] = $newPeg;
+			$pegs[] = clone $newPeg;
 		}
 		
 		return $pegs;
@@ -476,7 +476,7 @@ class Peg
 		
 		if(	$hole && $hole->hasMarble )
 		{
-			if(	($jump && $jump->hasMarble) && ($dest && !$dest->hasMarble) )
+			if(	(!empty($jump) && $jump->hasMarble) && (!empty($dest) && !$dest->hasMarble) )
 			{
 				return $return;
 			}
@@ -546,7 +546,6 @@ class Peg
 					
 					if($this->board[1][-2]->hasMarble && !$this->board[1][0]->hasMarble)
 					{
-						//$this->moveTo('right', 1, -2);
 						$moves[0][] = array('right', 1, -2);
 					}
 					else
@@ -947,7 +946,7 @@ class Peg
 							$moves[2][] = array('down', $i, $j);
 						}
 					}
-					catch(Exception $e) {}// Not available
+					catch(Exception $e) {} // Not available
 					
 					try
 					{
@@ -1171,7 +1170,7 @@ class Peg
 				
 				if(!$this->board[1][0]->hasMarble && !$this->board[1][1]->hasMarble && $this->board[1][2]->hasMarble)
 				{
-					$moves[5][] = array();
+					$moves[5] = array();
 					
 					$moves[5][] = array('down', 3, 1);
 					$moves[5][] = array('left', 1, 2);
@@ -1545,6 +1544,84 @@ class Peg
 	
 	
 	/**
+	 * Find a move for a 4-holes line.
+	 * 
+	 * Representation of a 4-holes line:
+	 * 
+	 *  X X O X
+	 * 
+	 * @return array 	Possible moves
+	 */
+	private function findLineMove()
+	{
+		$moves = array();
+		
+		for($i = 3; $i >= -3; $i--)
+		{
+			for($j = -3; $j <= 3; $j++)
+			{
+				$hole = & $this->board[$i][$j];
+				
+				if(	$hole )
+				{
+					if($hole->hasMarble)
+					{
+						// Top
+						if(
+							$this->canMoveTo('up', $i, $j) &&
+							!empty($this->board[$i + 3][$j]) &&
+							$this->board[$i + 3][$j]->hasMarble
+						)
+						{
+							$moves[0] = array();
+							$moves[0][] = array('up', $i, $j);
+							$moves[0][] = array('down', $i + 3, $j);
+						}
+						
+						// Right
+						if(
+							$this->canMoveTo('right', $i, $j) &&
+							!empty($this->board[$i][$j + 3]) &&
+							$this->board[$i][$j + 3]->hasMarble
+						)
+						{
+							$moves[1] = array();
+							$moves[1][] = array('right', $i, $j);
+							$moves[1][] = array('left', $i, $j + 3);
+						}
+						
+						// Down
+						if(
+							$this->canMoveTo('down', $i, $j) &&
+							!empty($this->board[$i - 3][$j]) &&
+							$this->board[$i - 3][$j]->hasMarble
+						)
+						{
+							$moves[2] = array();
+							$moves[2][] = array('down', $i, $j);
+							$moves[2][] = array('top', $i - 3, $j);
+						}
+						
+						// Left
+						if(
+							$this->canMoveTo('left', $i, $j) &&
+							!empty($this->board[$i][$j - 3]) &&
+							$this->board[$i][$j - 3]->hasMarble
+						)
+						{
+							$moves[3] = array();
+							$moves[3][] = array('left', $i, $j);
+							$moves[3][] = array('right', $i, $j - 3);
+						}
+					}
+				}
+			}
+		}
+		
+		return $moves;
+	}	
+	
+	/**
 	 * Find a simple move to make.
 	 *
 	 * @return array 	Possible moves.
@@ -1584,28 +1661,48 @@ class PegPlayer
 {
 	public function play()
 	{
-		$peg = new Peg();
+		ini_set('memory_limit', '-1');
+		set_time_limit('180');
 		
+		
+		$winners = array();
+		
+		$peg = new Peg();
 		$nextPegs = $peg->findPath();
+		unset($peg);
 		
 		while(!empty($nextPegs))
 		{
-			$pegs = unserialize(serialize($nextPegs));
+			$pegs = $nextPegs;
 			
+			unset($nextPegs);
 			$nextPegs = array();
 			
 			foreach($pegs as $peg)
 			{
 				$tmp = $peg->findPath();
 				
-				foreach($tmp as $t)
+				if(empty($tmp) && count($peg->moves) > 30)
 				{
-					$nextPegs[] = $t;
+					$winners[] = clone $peg;
 				}
+				else
+				{
+					unset($peg);
+					
+					foreach($tmp as $t)
+					{
+						$nextPegs[] = clone $t;
+						unset($t);
+					}
+				}
+				unset($tmp);
 			}
+			
+			unset($pegs);
 		}
 		
-		return $nextPegs;
+		return $winners;
 	}
 }
 
